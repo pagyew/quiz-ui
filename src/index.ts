@@ -1,9 +1,10 @@
 import { createQuizEngine } from "./core.js";
 import { createQuizUI } from "./ui.js";
 import { createQuizStorage } from "./storage.js";
-import { defaultLabels, presentResult } from "./labels.js";
+import { localizeConfig, requireLocale } from "./i18n.js";
 import type {
   EngineOptions,
+  Locale,
   QuizConfig,
   QuizSettings,
   StorageLike,
@@ -11,6 +12,14 @@ import type {
 } from "./types.js";
 export { createQuizEngine } from "./core.js";
 export { createQuizUI } from "./ui.js";
+export { supportedLocales } from "./i18n.js";
+export {
+  defaultLabels,
+  russianLabels,
+  localeLabels,
+  presentResult,
+  formatTime,
+} from "./labels.js";
 export { createQuizStorage } from "./storage.js";
 export type * from "./types.js";
 
@@ -44,7 +53,19 @@ export function createQuiz(
   } catch {
     /* A removed pack must not prevent launching with valid defaults. */
   }
-  const labels = { ...defaultLabels, ...config.labels };
+  let locale = storage.locale(requireLocale(config.locale ?? "en"));
+  let localized = localizeConfig(config, locale);
+  let labels = localized.labels;
+  function setLocale(value: Locale) {
+    requireLocale(value);
+    if (destroyed || value === locale) return;
+    locale = value;
+    localized = localizeConfig(config, locale);
+    labels = localized.labels;
+    ui.setLocale(locale);
+    storage.saveLocale(locale);
+    config.onLocaleChange?.(locale);
+  }
   let theme = storage.theme(),
     sound = true,
     destroyed = false;
@@ -97,17 +118,18 @@ export function createQuiz(
   async function share() {
     const result = engine.getSnapshot().result;
     if (!result || destroyed) return;
-    const presentation = (config.presentResult ?? presentResult)(result);
+    const sharedLocale = locale;
+    const presentation = localized.presentResult(result);
     const text =
-      config.shareText?.(result, presentation) ??
-      `I found ${result.score}/${result.total} answers in ${config.branding.name} — ${presentation.grade}.`;
+      localized.shareText?.(result, presentation) ??
+      labels.shareMessage(result, localized.branding.name, presentation.grade);
     const url = window.location.href;
     const fullText = `${text} ${url}`;
     const navigator = window.navigator;
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${config.branding.name} result`,
+          title: labels.shareTitle(localized.branding.name),
           text,
           url,
         });
@@ -119,35 +141,40 @@ export function createQuiz(
     try {
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(fullText);
-      if (!destroyed) ui.toast(labels.copied);
+      if (!destroyed && locale === sharedLocale) ui.toast(labels.copied);
     } catch {
-      if (!destroyed) ui.showShareFallback(fullText);
+      if (!destroyed && locale === sharedLocale) ui.showShareFallback(fullText);
     }
   }
-  const ui = createQuizUI(target, config, {
-    submit: (value) => engine.submit(value),
-    hint: () => engine.hint(),
-    giveUp: () => engine.finish(),
-    reset: () => reset(),
-    sprint: () => reset({ mode: "sprint" }),
-    settings(settings) {
-      reset({ settings });
-      storage.saveSettings(engine.getSnapshot().settings);
-      return true;
+  const ui = createQuizUI(
+    target,
+    { ...config, locale },
+    {
+      locale: setLocale,
+      submit: (value) => engine.submit(value),
+      hint: () => engine.hint(),
+      giveUp: () => engine.finish(),
+      reset: () => reset(),
+      sprint: () => reset({ mode: "sprint" }),
+      settings(settings) {
+        reset({ settings });
+        storage.saveSettings(engine.getSnapshot().settings);
+        return true;
+      },
+      theme(value) {
+        theme = value;
+        storage.saveTheme(theme);
+        applyTheme();
+      },
+      sound() {
+        sound = !sound;
+        ui.setSound(sound);
+      },
+      share: () => {
+        void share();
+      },
     },
-    theme(value) {
-      theme = value;
-      storage.saveTheme(theme);
-      applyTheme();
-    },
-    sound() {
-      sound = !sound;
-      ui.setSound(sound);
-    },
-    share: () => {
-      void share();
-    },
-  });
+  );
   const unsubscribe = engine.subscribe((state, event) => {
     if (destroyed) return;
     if (event.type === "finish")
@@ -200,7 +227,10 @@ export function createQuiz(
   ui.setSound(sound);
   applyTheme();
   ui.focusInput();
+  config.onLocaleChange?.(locale);
   return {
+    getLocale: () => locale,
+    setLocale,
     engine,
     getSnapshot: engine.getSnapshot,
     submitAnswer(value: string) {

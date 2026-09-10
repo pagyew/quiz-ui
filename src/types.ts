@@ -1,3 +1,4 @@
+export type Locale = "en" | "ru";
 export type Theme = "light" | "system" | "dark";
 export type Mode = "standard" | "sprint";
 export type FinishReason = "won" | "timeout" | "give-up";
@@ -109,6 +110,18 @@ export interface ResultPresentation {
   grade: string;
 }
 export interface QuizLabels {
+  language: string;
+  colorTheme: string;
+  settingsKicker: string;
+  invalidSettings: string;
+  home: (name: string) => string;
+  randomEntries: (count: number) => string;
+  cardHint: (hint: string) => string;
+  cardFound: (answer: string) => string;
+  cardAssisted: (answer: string) => string;
+  cardMissed: (answer: string) => string;
+  shareTitle: (name: string) => string;
+  shareMessage: (result: QuizResult, name: string, grade: string) => string;
   sound: string;
   howToPlay: string;
   lightTheme: string;
@@ -150,7 +163,27 @@ export interface QuizLabels {
   duplicate: (answer: string) => string;
   unknown: (answer: string) => string;
 }
+/** Presentation only: translations cannot change answer identities or round rules. */
+export interface QuizTranslation {
+  branding?: Partial<QuizConfig["branding"]>;
+  board?: Partial<QuizConfig["board"]>;
+  howToPlay?: Partial<QuizConfig["howToPlay"]>;
+  labels?: Partial<QuizLabels>;
+  categories?: Record<string, Partial<Pick<Category, "label" | "description">>>;
+  packs?: Record<string, Partial<Pick<AnswerPack, "label" | "description">>>;
+  answers?: Record<string, Partial<Pick<Answer, "summary" | "docsUrl">>>;
+  referenceLabel?: QuizConfig["referenceLabel"];
+  presentResult?: QuizConfig["presentResult"];
+  shareText?: QuizConfig["shareText"];
+}
 export interface QuizConfig extends QuizDefinition {
+  /** Initial fallback when no supported language has been saved. Default: en. */
+  locale?: Locale;
+  translations?: Partial<Record<Locale, QuizTranslation>>;
+  /** Hide the built-in selector when the host provides its own control. */
+  showLanguageSwitcher?: boolean;
+  /** Called on mount and after a language change; full-page apps can set html.lang. */
+  onLocaleChange?: (locale: Locale) => void;
   branding: {
     name: string;
     wordmark?: readonly [string, string];

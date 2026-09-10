@@ -1,4 +1,12 @@
-import type { Answer, CardState, Category, IconShape } from "./types.js";
+import { localeLabels } from "./labels.js";
+import type {
+  Answer,
+  CardState,
+  Category,
+  IconShape,
+  Locale,
+  QuizLabels,
+} from "./types.js";
 
 export function element<K extends keyof HTMLElementTagNameMap>(
   document: Document,
@@ -65,6 +73,8 @@ export function createIcon(
   return icon;
 }
 export interface AnswerCardOptions {
+  locale?: Locale;
+  labels?: Partial<QuizLabels>;
   state?: CardState;
   label?: string;
   hint?: string;
@@ -87,6 +97,7 @@ export function updateAnswerCard(
   answer: Answer,
   options: AnswerCardOptions,
 ): void {
+  const labels = { ...localeLabels[options.locale ?? "en"], ...options.labels };
   const state = options.state ?? "hidden";
   const label = options.label ?? answer.value ?? answer.id;
   card.dataset.state = state;
@@ -101,10 +112,14 @@ export function updateAnswerCard(
   card.setAttribute(
     "aria-label",
     state === "hidden"
-      ? (options.hiddenLabel ?? "Undiscovered answer")
+      ? (options.hiddenLabel ?? labels.hiddenAnswer)
       : state === "hinted"
-        ? `Hint: ${display}`
-        : `${label}${state === "missed" ? " — missed" : state === "found-with-hint" ? " — found with a hint" : " — found"}`,
+        ? labels.cardHint(display)
+        : state === "missed"
+          ? labels.cardMissed(label)
+          : state === "found-with-hint"
+            ? labels.cardAssisted(label)
+            : labels.cardFound(label),
   );
 }
 export function createCategorySection(document: Document, category: Category) {
@@ -114,10 +129,11 @@ export function createCategorySection(document: Document, category: Category) {
   const icon = element(document, "span", "quiz-category-icon");
   icon.append(createIcon(document, category.icon));
   const count = element(document, "small", "", "0/0");
-  heading.append(icon, element(document, "span", "", category.label), count);
+  const label = element(document, "span", "", category.label);
+  heading.append(icon, label, count);
   const grid = element(document, "div", "quiz-category-grid");
   section.append(heading, grid);
-  return { element: section, grid, count };
+  return { element: section, grid, count, label };
 }
 
 let nextDialogId = 0;
@@ -128,6 +144,7 @@ export function createDialog(
     kicker?: string;
     className?: string;
     closeLabel?: string;
+    locale?: Locale;
     onClose?: () => void;
   },
 ) {
@@ -137,7 +154,10 @@ export function createDialog(
     `quiz-dialog ${options.className ?? ""}`,
   );
   const closeButton = button(document, "quiz-dialog-close", "×");
-  closeButton.setAttribute("aria-label", options.closeLabel ?? "Close");
+  closeButton.setAttribute(
+    "aria-label",
+    options.closeLabel ?? localeLabels[options.locale ?? "en"].close,
+  );
   const kicker = element(document, "div", "quiz-kicker", options.kicker ?? "");
   const heading = element(document, "h2", "", options.title);
   heading.id = `quiz-dialog-title-${++nextDialogId}`;
@@ -171,6 +191,7 @@ export function createDialog(
   });
   return {
     element: dialog,
+    closeButton,
     heading,
     kicker,
     content,

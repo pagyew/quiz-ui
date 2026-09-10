@@ -60,7 +60,7 @@ run(
 );
 await writeFile(
   resolve(scratch, "consumer.ts"),
-  `import { createQuizEngine } from '@pagyew/quiz-ui/core';\nimport { createQuiz, type QuizConfig } from '@pagyew/quiz-ui';\nconst engine = createQuizEngine({ id:'test',categories:[{id:'one',label:'One'}],answers:[{id:'a',category:'one'}] });\nconst score: number = engine.getSnapshot().found.length;\ndeclare const config: QuizConfig;\ncreateQuiz(document.body, config).destroy();\n`,
+  `import { createQuizEngine } from '@pagyew/quiz-ui/core';\nimport { createQuiz, type QuizConfig, type QuizTranslation } from '@pagyew/quiz-ui';\nconst engine = createQuizEngine({ id:'test',categories:[{id:'one',label:'One'}],answers:[{id:'a',category:'one'}] });\nconst score: number = engine.getSnapshot().found.length;\ndeclare const config: QuizConfig;\nconst ru: QuizTranslation = { categories: {one:{label:"Один"}} };\nconst quiz = createQuiz(document.body, { ...config, locale: "en", translations: {ru} });\nquiz.setLocale("ru");\nconst locale: "en" | "ru" = quiz.getLocale();\nquiz.destroy();\n`,
 );
 run(
   process.execPath,
@@ -100,6 +100,8 @@ for (const file of [
   "main.js",
   "game.config.js",
   "answers.js",
+  "ru.js",
+  "vendor/quiz-ui/i18n.js",
   "theme.css",
   "vendor/quiz-ui/index.js",
   "vendor/quiz-ui/core.js",
