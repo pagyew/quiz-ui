@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Quiz UI — A small kit for curious games</title>
+    <meta
+      name="description"
+      content="Framework-independent components, themes, and a game engine for type-to-reveal quizzes. Built from Tag Type and Prop Type."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="catalog.css" />
+  </head>
+  <body>
+    <header class="docs-nav">
+      <a class="docs-brand" href="#"><span>q/</span> quiz ui</a>
+      <nav>
+        <a href="#components">Components</a><a href="#start">Quick start</a
+        ><a href="https://github.com/pagyew/quiz-ui">GitHub ↗</a>
+      </nav>
+    </header>
+    <main class="docs-main">
+      <section class="docs-hero">
+        <p class="docs-eyebrow">ONE SHARED LANGUAGE. MANY LITTLE GAMES.</p>
+        <h1>Give curiosity<br />a place to <em>play.</em></h1>
+        <p class="docs-lede">
+          The interface, the feedback, the next round.<br />A small, complete
+          kit for games that start with “How many can you name?”
+        </p>
+        <div class="docs-links">
+          <a class="docs-primary" href="play/"
+            >Play the starter <span>↗</span></a
+          ><a href="#start">Build your own →</a>
+        </div>
+        <div class="docs-meta">
+          <span>JAVASCRIPT + CSS</span><span>ZERO RUNTIME DEPENDENCIES</span
+          ><span>MIT LICENSE</span>
+        </div>
+      </section>
+      <section class="docs-section" id="components">
+        <div class="docs-section-title">
+          <div>
+            <p class="docs-eyebrow">01 / THE BUILDING BLOCKS</p>
+            <h2>Every answer has a state.</h2>
+          </div>
+          <p>
+            Clear feedback, a familiar rhythm.<br />Use these components with
+            your own game logic.
+          </p>
+        </div>
+        <div class="docs-controls" aria-label="Component preview controls">
+          <label
+            >Palette
+            <select id="palette">
+              <option value="mint">Mint · Tag Type</option>
+              <option value="violet">Violet · Prop Type</option>
+            </select></label
+          ><label
+            >Surface
+            <select id="surface">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select></label
+          >
+        </div>
+        <div
+          id="componentsPreview"
+          class="quiz-ui component-preview"
+          data-theme="light"
+          data-palette="mint"
+        >
+          <div id="cardStates" class="docs-card-states"></div>
+          <div id="categoryExample"></div>
+          <div class="docs-dialog-controls">
+            <button id="referenceDemo" class="quiz-action">
+              Open a reference card ↗</button
+            ><button id="resultDemo" class="quiz-action">
+              Open a result dialog ↗
+            </button>
+          </div>
+        </div>
+      </section>
+      <section class="docs-section docs-two-column">
+        <div>
+          <p class="docs-eyebrow">02 / THE EXPERIENCE</p>
+          <h2>A complete round,<br />ready to make your own.</h2>
+          <p class="docs-body">
+            Start typing. Find an answer. Ask for a hint. See what you missed,
+            and try again. The shared engine handles time, scoring, answer
+            packs, and sprint rounds.
+          </p>
+          <a class="docs-text-link" href="play/">Try Fruit Type →</a>
+        </div>
+        <ol class="docs-flow">
+          <li>
+            <span>01</span>
+            <div>
+              <b>Remember</b>
+              <p>The clock begins with a guess or a hint.</p>
+            </div>
+          </li>
+          <li>
+            <span>02</span>
+            <div>
+              <b>Discover</b>
+              <p>Reveal the board one answer at a time.</p>
+            </div>
+          </li>
+          <li>
+            <span>03</span>
+            <div>
+              <b>Reflect</b>
+              <p>See your score and the answers you missed.</p>
+            </div>
+          </li>
+          <li>
+            <span>04</span>
+            <div>
+              <b>Repeat</b>
+              <p>A full round or a quick sprint. Your choice.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+      <section class="docs-section" id="start">
+        <p class="docs-eyebrow">03 / YOUR NEXT GAME</p>
+        <h2>Bring the answers.<br />The rest is here.</h2>
+        <div class="docs-two-column">
+          <div>
+            <p class="docs-body">
+              Start with a working quiz. Change its data, words, colors, and
+              rules. Build a static site and host it wherever you like.
+            </p>
+            <pre><code>npx @pagyew/quiz-ui init my-quiz
+cd my-quiz
+npm install
+npm run dev</code></pre>
+            <p class="docs-small">
+              Node.js 22 or newer. The included project uses the public npm
+              registry.
+            </p>
+          </div>
+          <div class="docs-file-list">
+            <div>
+              <code>answers.js</code
+              ><span>Answers, categories, aliases, descriptions.</span>
+            </div>
+            <div>
+              <code>game.config.js</code
+              ><span>The name, copy, modes, and input rules.</span>
+            </div>
+            <div>
+              <code>theme.css</code
+              ><span>Your palette and visual identity.</span>
+            </div>
+            <div><code>main.js</code><span>One call to createQuiz.</span></div>
+          </div>
+        </div>
+      </section>
+      <section class="docs-section">
+        <p class="docs-eyebrow">04 / THREE WAYS TO USE IT</p>
+        <div class="docs-api-grid">
+          <article>
+            <code>@pagyew/quiz-ui</code>
+            <h3>The whole game</h3>
+            <p>Mount a complete, themeable quiz from a configuration object.</p>
+          </article>
+          <article>
+            <code>@pagyew/quiz-ui/ui</code>
+            <h3>Your logic, our UI</h3>
+            <p>
+              Render snapshots or compose individual cards, categories, and
+              dialogs.
+            </p>
+          </article>
+          <article>
+            <code>@pagyew/quiz-ui/core</code>
+            <h3>Your UI, our logic</h3>
+            <p>
+              A synchronous, testable engine with no DOM or storage dependency.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section class="docs-section docs-origin">
+        <div>
+          <p class="docs-eyebrow">MADE FROM REAL GAMES</p>
+          <h2>Two originals.<br />One shared foundation.</h2>
+        </div>
+        <div class="docs-game-links">
+          <a href="https://tag-type-quiz.pagyew.chatgpt.site"
+            ><span>&lt;/&gt;</span>
+            <div><b>Tag Type</b><small>The HTML tag quiz</small></div>
+            ↗</a
+          ><a href="https://prop-type-quiz.pagyew.chatgpt.site"
+            ><span>{;}</span>
+            <div><b>Prop Type</b><small>The CSS property quiz</small></div>
+            ↗</a
+          >
+        </div>
+      </section>
+    </main>
+    <footer class="docs-footer">
+      <a class="docs-brand" href="#">quiz ui</a
+      ><span>Small games. Shared craft.</span
+      ><a href="https://github.com/pagyew/quiz-ui/blob/main/docs/API.md"
+        >Read the API reference ↗</a
+      >
+    </footer>
+    <script type="module" src="catalog.js"></script>
+  </body>
+</html>

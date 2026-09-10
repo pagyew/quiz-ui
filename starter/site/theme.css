@@ -1,0 +1,21 @@
+@import url("./vendor/quiz-ui/styles.css");
+
+body {
+  margin: 0;
+}
+
+/* A new visual identity needs only a handful of token overrides. */
+.quiz-ui[data-theme="light"] {
+  --quiz-paper: #fff9ed;
+  --quiz-accent: #9b4c1b;
+  --quiz-primary: #9b4c1b;
+  --quiz-focus: #c66a27;
+  --quiz-focus-ring: #c66a2726;
+  --quiz-hero-glow: #f3b45538;
+  --quiz-hero-tint: #f3b45512;
+  --quiz-brand-bg: #fff0d2;
+  --quiz-brand-ink: #9b4c1b;
+  --quiz-brand-line: #ecc898;
+  --quiz-progress-start: #ec9f40;
+  --quiz-progress-end: #9b4c1b;
+}
