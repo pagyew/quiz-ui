@@ -202,11 +202,22 @@
 }
 :where(.quiz-ui) .quiz-icon-button,
 :where(.quiz-ui) .quiz-how-button,
+:where(.quiz-ui) .quiz-language,
 :where(.quiz-ui) .quiz-themes {
   height: 38px;
   border: 1px solid var(--quiz-line);
   background: transparent;
   border-radius: 8px;
+}
+:where(.quiz-ui) .quiz-language {
+  padding: 0 7px;
+  font: 500 12px var(--quiz-font-mono);
+  color: var(--quiz-ink);
+  cursor: pointer;
+}
+:where(.quiz-ui) .quiz-language option {
+  color: var(--quiz-ink);
+  background: var(--quiz-paper);
 }
 :where(.quiz-ui) .quiz-icon-button {
   width: 38px;
@@ -986,6 +997,29 @@
   }
   :where(.quiz-ui) .quiz-result-actions {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 440px) {
+  .quiz-ui {
+    --quiz-top: 108px;
+  }
+  :where(.quiz-ui) .quiz-topbar {
+    flex-wrap: wrap;
+    padding-block: 10px;
+    gap: 8px;
+  }
+  :where(.quiz-ui) .quiz-top-actions {
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
+  :where(.quiz-ui) .quiz-setting-row {
+    gap: 12px;
+  }
+  :where(.quiz-ui) .quiz-setting-row > span {
+    min-width: 0;
+  }
+  :where(.quiz-ui) .quiz-setting-row input[type="checkbox"] {
+    flex-shrink: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

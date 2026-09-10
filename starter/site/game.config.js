@@ -1,7 +1,10 @@
 import { answers, categories } from "./answers.js";
+import { ru } from "./ru.js";
 
 /** @type {import('@pagyew/quiz-ui').QuizConfig} */
 export const config = {
+  locale: "en",
+  translations: { ru },
   id: "fruit-type",
   answers,
   categories,

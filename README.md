@@ -95,3 +95,29 @@ Keep game datasets and domain-specific answer parsing in consumer repositories. 
 [MIT](LICENSE).
 
 <!-- Сообщение сформировано агентом -->
+
+## English and Russian
+
+Games start in English. The EN/RU selector saves the player's choice per game and updates the interface without restarting the round. Built-in controls, accessibility labels, results and sharing support both languages.
+
+Keep game-specific English copy in the base config and add Russian presentation overrides:
+
+```js
+const quiz = createQuiz("#quiz", {
+  ...config,
+  locale: "en",
+  translations: {
+    ru: {
+      branding: { title: ["Сколько ответов вы помните?"], emphasis: "" },
+      board: { title: "Ответы по категориям" },
+      labels: { inputPlaceholder: "Введите ответ и нажмите Enter…" },
+      categories: { fruit: { label: "Фрукты" } },
+      answers: { apple: { summary: "Хрустящий фрукт." } },
+    },
+  },
+});
+quiz.setLocale("ru");
+quiz.getLocale(); // "ru"
+```
+
+Missing game copy falls back to the base config. Answer IDs, accepted spellings and aliases remain the same in both languages. The starter includes a complete bilingual interface; its fruit answers are entered in English. See [localization API](docs/API.md#localization) for callbacks, standalone components and custom selectors.

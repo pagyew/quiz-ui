@@ -11,6 +11,6 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
-    "@pagyew/quiz-ui": "0.1.0"
+    "@pagyew/quiz-ui": "0.2.0"
   }
 }

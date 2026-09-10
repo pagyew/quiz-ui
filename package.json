@@ -1,6 +1,6 @@
 {
   "name": "@pagyew/quiz-ui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Themeable, framework-independent UI and game engine for type-to-reveal quizzes.",
   "license": "MIT",
   "type": "module",

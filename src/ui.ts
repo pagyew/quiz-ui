@@ -1,3 +1,4 @@
+import { localizeConfig, requireLocale, supportedLocales } from "./i18n.js";
 import {
   button,
   createAnswerCard,
@@ -7,9 +8,10 @@ import {
   safeUrl,
   updateAnswerCard,
 } from "./components.js";
-import { defaultLabels, formatTime, presentResult } from "./labels.js";
+import { formatTime } from "./labels.js";
 import type {
   Answer,
+  Locale,
   CardState,
   QuizConfig,
   QuizSettings,
@@ -23,9 +25,23 @@ export {
   createIcon,
   updateAnswerCard,
 } from "./components.js";
-export { defaultLabels, formatTime, presentResult } from "./labels.js";
+export {
+  defaultLabels,
+  russianLabels,
+  localeLabels,
+  formatTime,
+  presentResult,
+} from "./labels.js";
 export type { AnswerCardOptions } from "./components.js";
-export type { CardState, QuizConfig, QuizLabels, Theme } from "./types.js";
+export { supportedLocales } from "./i18n.js";
+export type {
+  CardState,
+  Locale,
+  QuizConfig,
+  QuizLabels,
+  QuizTranslation,
+  Theme,
+} from "./types.js";
 
 export interface QuizUIActions {
   submit(value: string): void;
@@ -34,6 +50,7 @@ export interface QuizUIActions {
   sprint(): void;
   settings(settings: QuizSettings): boolean;
   theme(theme: Theme): void;
+  locale?(locale: Locale): void;
   sound(): void;
   share(): void;
   giveUp(): void;
@@ -41,6 +58,8 @@ export interface QuizUIActions {
 export interface QuizUI {
   render(snapshot: QuizSnapshot, best?: number): void;
   setTheme(theme: Theme, dark: boolean): void;
+  getLocale(): Locale;
+  setLocale(locale: Locale): void;
   setSound(enabled: boolean): void;
   feedback(text: string): void;
   toast(text: string): void;
@@ -56,7 +75,7 @@ const mounted = new WeakSet<HTMLElement>();
 /** Render with any state manager. No timers, storage, or game engine are created here. */
 export function createQuizUI(
   root: HTMLElement,
-  config: QuizConfig,
+  baseConfig: QuizConfig,
   actions: QuizUIActions,
 ): QuizUI {
   if (mounted.has(root))
@@ -64,13 +83,15 @@ export function createQuizUI(
   const document = root.ownerDocument;
   const window = document.defaultView;
   if (!window) throw new Error("Quiz UI needs a browser document");
-  const labels = { ...defaultLabels, ...config.labels };
+  let locale = requireLocale(baseConfig.locale ?? "en");
+  let config = localizeConfig(baseConfig, locale);
+  let labels = config.labels;
   const abort = new window.AbortController();
   const on = (target: EventTarget, event: string, handler: EventListener) =>
     target.addEventListener(event, handler, { signal: abort.signal });
   const savedNodes = [...root.childNodes];
   const savedAttributes = new Map(
-    ["class", "data-theme", "data-palette"].map((key) => [
+    ["class", "data-theme", "data-palette", "lang"].map((key) => [
       key,
       root.getAttribute(key),
     ]),
@@ -80,6 +101,8 @@ export function createQuizUI(
     config.categories.map((category) => [category.id, category]),
   );
   let snapshot: QuizSnapshot | null = null;
+  let lastBest = 0;
+  let referenceId: string | null = null;
   let destroyed = false;
   let feedbackTimer: number | undefined;
   let toastTimer: number | undefined;
@@ -90,114 +113,182 @@ export function createQuizUI(
     config.formatHint ??
     ((answer: Answer) =>
       `${[...(answer.value ?? answer.id)][0]}${"·".repeat(Math.max(3, [...(answer.value ?? answer.id)].length - 1))}`);
+  // Text bindings update existing nodes, preserving focus, input and modal drafts.
+  const bindings: (() => void)[] = [];
+  const bind = (update: () => void) => {
+    bindings.push(update);
+    update();
+  };
+  type Copy = string | (() => string | undefined);
+  const appendCopy = (node: Node, copy?: Copy) => {
+    if (copy === undefined) return;
+    const text = document.createTextNode("");
+    node.appendChild(text);
+    if (typeof copy === "function")
+      bind(() => {
+        text.textContent = copy() ?? "";
+      });
+    else text.textContent = copy;
+  };
+  const attr = (node: Element, name: string, value: () => string) =>
+    bind(() => node.setAttribute(name, value()));
   const e = <K extends keyof HTMLElementTagNameMap>(
     tag: K,
     className = "",
-    text?: string,
-  ) => element(document, tag, className, text);
-  const b = (className: string, text: string, icon?: string) =>
-    button(document, className, text, icon);
+    text?: Copy,
+  ) => {
+    const node = element(document, tag, className);
+    appendCopy(node, text);
+    return node;
+  };
+  const b = (className: string, text: Copy, icon?: string) => {
+    const node = button(document, className, "", icon);
+    appendCopy(node.lastElementChild!, text);
+    return node;
+  };
   const brand = () => {
     const node = e("span", "quiz-brand");
-    const mark = e("span", "quiz-brand-mark", config.branding.mark);
+    const mark = e("span", "quiz-brand-mark", () => config.branding.mark);
     mark.setAttribute("aria-hidden", "true");
     const word = e("span");
-    if (config.branding.wordmark)
-      word.append(
-        document.createTextNode(config.branding.wordmark[0]),
-        e("span", "", config.branding.wordmark[1]),
-      );
-    else word.textContent = config.branding.name;
+    bind(() => {
+      word.replaceChildren();
+      if (config.branding.wordmark)
+        word.append(
+          document.createTextNode(config.branding.wordmark[0]),
+          e("span", "", config.branding.wordmark[1]),
+        );
+      else word.textContent = config.branding.name;
+    });
     node.append(mark, word);
     return node;
   };
-  const glyph = () => e("div", "quiz-glyph", config.branding.mark);
+  const glyph = () => e("div", "quiz-glyph", () => config.branding.mark);
   const header = e("header", "quiz-topbar");
   const home = e("a");
-  home.href =
-    safeUrl(config.branding.homeUrl ?? "#", document.baseURI, true) ?? "#";
-  home.setAttribute("aria-label", `${config.branding.name} home`);
+  attr(
+    home,
+    "href",
+    () =>
+      safeUrl(config.branding.homeUrl ?? "#", document.baseURI, true) ?? "#",
+  );
+  attr(home, "aria-label", () => labels.home(config.branding.name));
   home.append(brand());
   const headerActions = e("div", "quiz-top-actions");
   const sound = b("quiz-icon-button", "♪");
-  sound.setAttribute("aria-label", labels.sound);
+  attr(sound, "aria-label", () => labels.sound);
   const themes = e("div", "quiz-themes");
   themes.setAttribute("role", "group");
-  themes.setAttribute("aria-label", "Color theme");
+  attr(themes, "aria-label", () => labels.colorTheme);
   const themeButtons = new Map<Theme, HTMLButtonElement>();
   for (const [theme, symbol, label] of [
-    ["light", "☼", labels.lightTheme],
-    ["system", "◐", labels.systemTheme],
-    ["dark", "☾", labels.darkTheme],
+    ["light", "☼", "lightTheme"],
+    ["system", "◐", "systemTheme"],
+    ["dark", "☾", "darkTheme"],
   ] as const) {
     const control = b("", symbol);
-    control.setAttribute("aria-label", label);
-    control.title = label;
+    attr(control, "aria-label", () => labels[label]);
+    attr(control, "title", () => labels[label]);
     on(control, "click", () => actions.theme(theme));
     themeButtons.set(theme, control);
     themes.append(control);
   }
-  const howButton = b("quiz-how-button", labels.howToPlay, "?");
-  howButton.setAttribute("aria-label", labels.howToPlay);
-  headerActions.append(sound, themes, howButton);
+  const howButton = b("quiz-how-button", () => labels.howToPlay, "?");
+  attr(howButton, "aria-label", () => labels.howToPlay);
+  const language = e("select", "quiz-language");
+  attr(language, "aria-label", () => labels.language);
+  attr(language, "title", () => labels.language);
+  language.hidden = baseConfig.showLanguageSwitcher === false;
+  for (const value of supportedLocales) {
+    const option = e("option", "", value.toUpperCase());
+    option.value = value;
+    option.lang = value;
+    language.append(option);
+  }
+  language.value = locale;
+  on(language, "change", () => {
+    const value = requireLocale(language.value);
+    if (actions.locale) actions.locale(value);
+    else ui.setLocale(value);
+  });
+  headerActions.append(sound, themes, language, howButton);
   header.append(home, headerActions);
   const main = e("main");
   const hero = e("section", "quiz-hero");
   const eyebrow = e("div", "quiz-eyebrow");
-  eyebrow.append(e("i"), e("span", "", config.branding.eyebrow));
+  eyebrow.append(
+    e("i"),
+    e("span", "", () => config.branding.eyebrow),
+  );
   const title = e("h1");
-  config.branding.title.forEach((line, index) => {
-    if (index) title.append(e("br"));
-    title.append(document.createTextNode(line));
-  });
-  if (config.branding.emphasis)
-    title.append(
-      document.createTextNode(" "),
-      e("em", "", config.branding.emphasis),
-    );
-  const description = e("p");
-  config.branding.description.forEach((line, index) => {
-    if (index)
-      description.append(
+  bind(() => {
+    title.replaceChildren();
+    config.branding.title.forEach((line, index) => {
+      if (index) title.append(e("br"));
+      title.append(document.createTextNode(line));
+    });
+    if (config.branding.emphasis)
+      title.append(
         document.createTextNode(" "),
-        e("br", "quiz-desktop-only"),
+        e("em", "", config.branding.emphasis),
       );
-    description.append(document.createTextNode(line));
+  });
+  const description = e("p");
+  bind(() => {
+    description.replaceChildren();
+    config.branding.description.forEach((line, index) => {
+      if (index)
+        description.append(
+          document.createTextNode(" "),
+          e("br", "quiz-desktop-only"),
+        );
+      description.append(document.createTextNode(line));
+    });
   });
   hero.append(eyebrow, title, description);
   const shell = e("section", "quiz-shell");
-  shell.setAttribute("aria-label", config.branding.name);
+  attr(shell, "aria-label", () => config.branding.name);
   const gameHead = e("div", "quiz-game-head");
   const scoreBlock = e("div", "quiz-status");
   const score = e("span", "", "0");
   const total = e("span", "", "0");
   const fraction = e("strong");
   fraction.append(score, e("b", "", "/"), total);
-  scoreBlock.append(e("small", "", labels.discovered), fraction);
+  scoreBlock.append(
+    e("small", "", () => labels.discovered),
+    fraction,
+  );
   const form = e("form", "quiz-input-wrap");
-  const prompt = e("span", "quiz-prompt", config.branding.inputPrompt ?? ">");
+  const prompt = e(
+    "span",
+    "quiz-prompt",
+    () => config.branding.inputPrompt ?? ">",
+  );
   prompt.setAttribute("aria-hidden", "true");
   const input = e("input", "quiz-input");
-  input.setAttribute("aria-label", labels.inputLabel);
+  attr(input, "aria-label", () => labels.inputLabel);
   input.autocomplete = "off";
   input.autocapitalize = "none";
   input.spellcheck = false;
-  input.placeholder = labels.inputPlaceholder;
+  attr(input, "placeholder", () => labels.inputPlaceholder);
   input.enterKeyHint = "go";
   const submit = b("quiz-enter-key", "↵");
   submit.type = "submit";
-  submit.setAttribute("aria-label", labels.submit);
+  attr(submit, "aria-label", () => labels.submit);
   const feedback = e("div", "quiz-input-feedback");
   feedback.setAttribute("role", "status");
   feedback.setAttribute("aria-live", "polite");
   form.append(prompt, input, submit, feedback);
   const timerBlock = e("div", "quiz-status quiz-timer");
   const timer = e("strong", "", "05:00");
-  timerBlock.append(e("small", "", labels.time), timer);
+  timerBlock.append(
+    e("small", "", () => labels.time),
+    timer,
+  );
   gameHead.append(scoreBlock, form, timerBlock);
   const progress = e("div", "quiz-progress");
   progress.setAttribute("role", "progressbar");
-  progress.setAttribute("aria-label", labels.progress);
+  attr(progress, "aria-label", () => labels.progress);
   progress.setAttribute("aria-valuemin", "0");
   const progressFill = e("div");
   progress.append(progressFill);
@@ -207,22 +298,22 @@ export function createQuizUI(
   const modeTitle = e("b");
   const modeInfo = e("div");
   modeInfo.append(e("span", "quiz-live-dot"), modeTitle, modeDescription);
-  const bestBlock = e("div", "quiz-best", labels.personalBest);
+  const bestBlock = e("div", "quiz-best", () => labels.personalBest);
   const bestScore = e("b", "", "—");
   bestBlock.append(bestScore);
   toolbar.append(modeInfo, bestBlock);
   const boardActions = e("div", "quiz-board-actions");
-  const sprint = b("quiz-action", labels.sprint, "⚡");
+  const sprint = b("quiz-action", () => labels.sprint, "⚡");
   sprint.hidden = config.sprint === false;
-  const settingsButton = b("quiz-action", labels.settings, "⚙");
-  const hint = b("quiz-action", labels.hint, "✦");
+  const settingsButton = b("quiz-action", () => labels.settings, "⚙");
+  const hint = b("quiz-action", () => labels.hint, "✦");
   const hintText = hint.lastElementChild!;
   hint.append(e("kbd", "", "H"));
-  const giveUp = b("quiz-action quiz-danger", labels.giveUp);
-  const reset = b("quiz-action", labels.reset, "↻");
+  const giveUp = b("quiz-action quiz-danger", () => labels.giveUp);
+  const reset = b("quiz-action", () => labels.reset, "↻");
   const resultsButton = b(
     "quiz-action quiz-results-button",
-    labels.results,
+    () => labels.results,
     "↗",
   );
   resultsButton.hidden = true;
@@ -243,8 +334,8 @@ export function createQuizUI(
   footerBrand.classList.add("quiz-muted");
   footer.append(
     footerBrand,
-    e("p", "", config.branding.footer),
-    e("span", "", config.branding.footerNote ?? ""),
+    e("p", "", () => config.branding.footer),
+    e("span", "", () => config.branding.footerNote ?? ""),
   );
   const how = createDialog(document, {
     title: config.howToPlay.title,
@@ -252,35 +343,36 @@ export function createQuizUI(
     closeLabel: labels.close,
   });
   const steps = e("ol");
-  for (const step of config.howToPlay.steps) {
-    const item = e("li");
-    item.append(e("b", "", step.title), e("span", "", step.description));
-    steps.append(item);
-  }
-  const start = b("quiz-primary", labels.startTyping, "→");
+  bind(() => {
+    steps.replaceChildren();
+    for (const step of config.howToPlay.steps) {
+      const item = e("li");
+      item.append(e("b", "", step.title), e("span", "", step.description));
+      steps.append(item);
+    }
+  });
+  const start = b("quiz-primary", () => labels.startTyping, "→");
   how.content.append(steps, start);
   const settingsDialog = createDialog(document, {
     title: labels.settingsTitle,
-    kicker: "GAME CONFIG",
+    kicker: labels.settingsKicker,
     className: "quiz-settings-dialog",
     closeLabel: labels.close,
   });
   const durationRow = e("label", "quiz-setting-row");
   const durationCopy = e("span");
   durationCopy.append(
-    e("b", "", labels.quizTime),
-    e("span", "", labels.quizTimeDescription),
+    e("b", "", () => labels.quizTime),
+    e("span", "", () => labels.quizTimeDescription),
   );
   const durationSelect = e("select");
-  durationSelect.setAttribute("aria-label", labels.quizTime);
+  attr(durationSelect, "aria-label", () => labels.quizTime);
   const durationValues = new Set([
     ...(config.durationOptions ?? [120, 300, 600, 900, 0]),
     config.defaults?.durationSeconds ?? 300,
   ]);
   for (const seconds of durationValues) {
-    const option = e(
-      "option",
-      "",
+    const option = e("option", "", () =>
       seconds ? labels.minutes(seconds / 60) : labels.noTimer,
     );
     option.value = String(seconds);
@@ -288,7 +380,7 @@ export function createQuizUI(
   }
   durationRow.append(durationCopy, durationSelect);
   settingsDialog.content.append(durationRow);
-  const toggle = (title: string, copy: string) => {
+  const toggle = (title: Copy, copy: Copy) => {
     const row = e("label", "quiz-setting-row");
     const text = e("span");
     text.append(e("b", "", title), e("span", "", copy));
@@ -302,13 +394,20 @@ export function createQuizUI(
   const packs = new Map(
     (config.packs ?? []).map((pack) => [
       pack.id,
-      toggle(pack.label, pack.description ?? ""),
+      toggle(
+        () => config.packs!.find((item) => item.id === pack.id)!.label,
+        () =>
+          config.packs!.find((item) => item.id === pack.id)!.description ?? "",
+      ),
     ]),
   );
-  const shuffle = toggle(labels.shuffle, labels.shuffleDescription);
+  const shuffle = toggle(
+    () => labels.shuffle,
+    () => labels.shuffleDescription,
+  );
   const settingsError = e("p", "quiz-settings-error");
   settingsError.setAttribute("role", "alert");
-  const apply = b("quiz-primary", labels.applySettings, "→");
+  const apply = b("quiz-primary", () => labels.applySettings, "→");
   settingsDialog.content.append(settingsError, apply);
   const reference = createDialog(document, {
     title: "",
@@ -317,7 +416,7 @@ export function createQuizUI(
   });
   reference.element.insertBefore(glyph(), reference.kicker);
   const referenceDescription = e("p");
-  const docs = e("a", "quiz-docs-link", labels.reference);
+  const docs = e("a", "quiz-docs-link", () => labels.reference);
   docs.target = "_blank";
   docs.rel = "noreferrer noopener";
   reference.content.append(referenceDescription, docs);
@@ -331,18 +430,24 @@ export function createQuizUI(
   const resultCopy = e("p");
   const resultScore = e("strong");
   const resultScoreBlock = e("div", "quiz-result-score");
-  resultScoreBlock.append(resultScore, e("span", "", labels.resultUnit));
+  resultScoreBlock.append(
+    resultScore,
+    e("span", "", () => labels.resultUnit),
+  );
   const grade = e("div", "quiz-result-grade");
   const resultActions = e("div", "quiz-result-actions");
-  const share = b("quiz-primary", labels.share, "↗");
-  const again = b("quiz-primary quiz-secondary", labels.playAgain, "↻");
+  const share = b("quiz-primary", () => labels.share, "↗");
+  const again = b("quiz-primary quiz-secondary", () => labels.playAgain, "↻");
   resultActions.append(share, again);
   const fallback = e("div", "quiz-share-fallback");
   fallback.hidden = true;
   const fallbackText = e("textarea");
   fallbackText.readOnly = true;
-  fallbackText.setAttribute("aria-label", labels.share);
-  fallback.append(e("p", "", labels.shareUnavailable), fallbackText);
+  attr(fallbackText, "aria-label", () => labels.share);
+  fallback.append(
+    e("p", "", () => labels.shareUnavailable),
+    fallbackText,
+  );
   const resultNotice = e("p", "quiz-share-notice");
   resultNotice.setAttribute("role", "status");
   results.content.append(
@@ -357,6 +462,15 @@ export function createQuizUI(
   toast.setAttribute("role", "status");
   toast.setAttribute("aria-live", "polite");
   const dialogs = [how, settingsDialog, reference, results];
+  for (const dialog of dialogs)
+    attr(dialog.closeButton, "aria-label", () => labels.close);
+  bind(() => {
+    how.heading.textContent = config.howToPlay.title;
+    how.kicker.textContent = config.howToPlay.kicker ?? "";
+    settingsDialog.heading.textContent = labels.settingsTitle;
+    settingsDialog.kicker.textContent = labels.settingsKicker;
+    results.kicker.textContent = labels.sessionComplete;
+  });
   const closeDialogs = () => dialogs.forEach((dialog) => dialog.close());
   const focusInput = () => {
     if (
@@ -366,7 +480,7 @@ export function createQuizUI(
     )
       input.focus({ preventScroll: true });
   };
-  const openReference = (answer: Answer) => {
+  const renderReference = (answer: Answer) => {
     reference.heading.textContent = formatAnswer(answer);
     const category = categoryById.get(answer.category)!;
     reference.kicker.textContent =
@@ -377,6 +491,10 @@ export function createQuizUI(
     docs.hidden = !url;
     if (url) docs.href = url;
     else docs.removeAttribute("href");
+  };
+  const openReference = (answer: Answer) => {
+    referenceId = answer.id;
+    renderReference(byId.get(answer.id)!);
     reference.open();
   };
   const cards = new Map<string, HTMLButtonElement>();
@@ -431,6 +549,8 @@ export function createQuizUI(
             : "hidden";
       updateAnswerCard(card, answer, {
         state: cardState,
+        locale,
+        labels,
         label: formatAnswer(answer),
         hint: formatHint(answer),
         hiddenLabel: `${labels.hiddenAnswer} — ${categoryById.get(answer.category)!.label}`,
@@ -441,6 +561,7 @@ export function createQuizUI(
       );
     }
     for (const [id, section] of sections) {
+      section.label.textContent = categoryById.get(id)!.label;
       const ids = state.pool.filter(
         (answer) => byId.get(answer)?.category === id,
       );
@@ -485,9 +606,7 @@ export function createQuizUI(
         (option) => option.value === String(value),
       )
     ) {
-      const option = e(
-        "option",
-        "",
+      const option = e("option", "", () =>
         value ? labels.minutes(value / 60) : labels.noTimer,
       );
       option.value = String(value);
@@ -514,9 +633,8 @@ export function createQuizUI(
         settingsDialog.close(false);
         focusInput();
       }
-    } catch (error) {
-      settingsError.textContent =
-        error instanceof Error ? error.message : String(error);
+    } catch {
+      settingsError.textContent = labels.invalidSettings;
     }
   });
   on(document, "keydown", (event) => {
@@ -555,14 +673,16 @@ export function createQuizUI(
   );
   root.classList.add("quiz-ui");
   root.dataset.palette = config.branding.palette ?? "mint";
+  root.lang = locale;
   mounted.add(root);
-  return {
+  const ui: QuizUI = {
     render(state, best = 0) {
       if (destroyed) return;
       const resetRound =
         state.status === "idle" &&
         (!snapshot || snapshot.status !== "idle" || state.found.length === 0);
       snapshot = state;
+      lastBest = best;
       score.textContent = String(state.found.length);
       total.textContent = String(state.pool.length);
       timer.textContent = formatTime(state.remainingSeconds);
@@ -578,7 +698,7 @@ export function createQuizUI(
       bestScore.textContent = best ? String(best) : "—";
       modeTitle.textContent =
         state.mode === "sprint" ? labels.sprint : config.board.title;
-      modeDescription.textContent = ` · ${state.mode === "sprint" ? (config.board.sprintDescription ?? `${Math.min((config.sprint && config.sprint.size) || 20, state.pool.length)} random entries`) : (config.board.description ?? "")}`;
+      modeDescription.textContent = ` · ${state.mode === "sprint" ? (config.board.sprintDescription ?? labels.randomEntries(Math.min((config.sprint && config.sprint.size) || 20, state.pool.length))) : (config.board.description ?? "")}`;
       sprint.setAttribute("aria-pressed", String(state.mode === "sprint"));
       hint.disabled =
         state.status === "finished" || state.hintCooldownSeconds > 0;
@@ -588,7 +708,7 @@ export function createQuizUI(
       resultsButton.hidden = !state.result;
       renderBoard(state);
       if (state.result) {
-        const result = (config.presentResult ?? presentResult)(state.result);
+        const result = config.presentResult(state.result);
         results.heading.textContent = result.title;
         resultCopy.textContent = result.description;
         resultScore.textContent = String(state.result.score);
@@ -600,6 +720,31 @@ export function createQuizUI(
         fallback.hidden = true;
         resultNotice.textContent = "";
       }
+    },
+    getLocale: () => locale,
+    setLocale(value) {
+      requireLocale(value);
+      if (destroyed || locale === value) return;
+      locale = value;
+      config = localizeConfig(baseConfig, locale);
+      labels = config.labels;
+      root.lang = locale;
+      root.dataset.palette = config.branding.palette ?? "mint";
+      language.value = locale;
+      for (const answer of config.answers) byId.set(answer.id, answer);
+      for (const category of config.categories)
+        categoryById.set(category.id, category);
+      bindings.forEach((update) => update());
+      boardStateKey = "";
+      if (snapshot) ui.render(snapshot, lastBest);
+      if (referenceId) renderReference(byId.get(referenceId)!);
+      // Transient notices describe the previous interaction in the old language.
+      feedback.textContent = toast.textContent = resultNotice.textContent = "";
+      feedback.classList.remove("is-visible");
+      toast.classList.remove("is-visible");
+      if (settingsError.textContent)
+        settingsError.textContent = labels.invalidSettings;
+      fallback.hidden = true;
     },
     setTheme(theme, dark) {
       root.dataset.theme = dark ? "dark" : "light";
@@ -670,4 +815,5 @@ export function createQuizUI(
       mounted.delete(root);
     },
   };
+  return ui;
 }

@@ -1,5 +1,7 @@
+import { isLocale } from "./i18n.js";
 import type {
   LegacyStorage,
+  Locale,
   Mode,
   QuizDefinition,
   QuizSettings,
@@ -99,6 +101,13 @@ export function createQuizStorage(
     },
     saveTheme(value: Theme) {
       write(`${prefix}:theme`, value);
+    },
+    locale(fallback: Locale = "en"): Locale {
+      const value = read(`${prefix}:locale`);
+      return isLocale(value) ? value : fallback;
+    },
+    saveLocale(value: Locale) {
+      if (isLocale(value)) write(`${prefix}:locale`, value);
     },
     best,
     saveBest(settings: QuizSettings, mode: Mode, score: number) {
