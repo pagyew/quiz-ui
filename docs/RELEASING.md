@@ -4,7 +4,7 @@ The package is `@pagyew/quiz-ui`, owned by `pagyew`, under MIT. Publish only to 
 
 ## Prepare a version
 
-1. Use Git on a feature branch; keep `main` clean. Update the root and starter package versions together, including the starter's exact library dependency, then update the lockfile and changelog.
+1. Use Git on a feature branch; keep `main` clean. Update the root package version and the starter's exact library dependency together, then update the lockfile and changelog.
 2. Run `npm ci --registry=https://registry.npmjs.org/`, `npm run check`, and `npm run build:docs`. Check creates and installs a real archive, verifies public exports and TypeScript declarations, generates a fresh quiz, and builds its static output.
 3. Preview both palettes, mobile layouts, dialogs, and the included Fruit Type game. Install the candidate archive in both original games and run their checks before making a release.
 4. Merge reviewed changes after CI passes. The tag `vX.Y.Z` must point to that source, and `X.Y.Z` must match the package manifest. Never overwrite a published version.

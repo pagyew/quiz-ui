@@ -7,7 +7,7 @@ Framework-independent JavaScript and CSS. Written in TypeScript. **No runtime de
 ## Create a game
 
 ```sh
-npx @pagyew/quiz-ui init my-quiz
+npx --registry=https://registry.npmjs.org/ @pagyew/quiz-ui init my-quiz
 cd my-quiz
 npm install --registry=https://registry.npmjs.org
 npm run dev
