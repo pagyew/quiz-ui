@@ -1,0 +1,29 @@
+name: Publish npm package
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org/
+      - name: Use an OIDC-capable npm CLI
+        run: npm install --global npm@11 --registry=https://registry.npmjs.org/
+      - run: npm ci --registry=https://registry.npmjs.org/
+      - name: Match the release tag to the package version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node --input-type=module -e 'import p from "./package.json" with { type:"json" }; if (process.env.RELEASE_TAG !== `v${p.version}`) throw Error("Release tag must match package version");'
+      - run: npm run check
+      - name: Publish the tested archive to the public registry
+        run: node scripts/publish.mjs

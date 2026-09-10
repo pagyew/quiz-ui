@@ -1,0 +1,74 @@
+{
+  "name": "@pagyew/quiz-ui",
+  "version": "0.1.0",
+  "description": "Themeable, framework-independent UI and game engine for type-to-reveal quizzes.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./ui": {
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./themes/violet.css": "./dist/themes/violet.css",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "quiz-ui": "./bin/quiz-ui.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "starter",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pagyew/quiz-ui.git"
+  },
+  "homepage": "https://github.com/pagyew/quiz-ui#readme",
+  "bugs": "https://github.com/pagyew/quiz-ui/issues",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "check": "npm test && npm run format:check && npm run test:package",
+    "test:package": "node scripts/smoke-package.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev": "npm run build && node scripts/dev.mjs",
+    "build:docs": "npm run build && node scripts/build-docs.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "happy-dom": "20.11.8",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3"
+  }
+}
