@@ -31,6 +31,8 @@ assert(
 );
 assert(packed.files.some((file) => file.path === "starter/npmrc"));
 const tarball = resolve("work", packed.filename);
+// Exercise npm's package-spec parsing without publishing or requiring login.
+run(process.execPath, [resolve("scripts/publish.mjs"), "--dry-run"]);
 const scratch = await mkdtemp(resolve("work/installed-"));
 await writeFile(
   resolve(scratch, "package.json"),
