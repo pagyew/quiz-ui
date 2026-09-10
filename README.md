@@ -1,4 +1,5 @@
 <div align="center">
+  <img src=".github/assets/cover.png" alt="Quiz UI — project illustration" width="100%" />
   <h1>Quiz UI</h1>
   <p><strong>A complete kit for type-to-reveal memory games.</strong></p>
   <p>
